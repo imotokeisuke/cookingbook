@@ -206,6 +206,13 @@ export default function App() {
     setTab("record");
   };
 
+  const handleRemoveRecord = async (id) => {
+    if (!window.confirm("この料理記録を削除しますか？")) return;
+    const next = records.filter(r => r.id !== id);
+    await persist(next);
+    showToast("削除しました 🗑");
+  };
+
   const weekDays = getWeekDays(weekRef);
   const today = toDateStr(new Date());
 
@@ -376,7 +383,22 @@ export default function App() {
                                 ))}
                               </div>
                             </div>
-                            <span style={{ fontSize: 18, color: C.border }}>›</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveRecord(r.id);
+                              }}
+                              style={{
+                                background: "none", border: "none", color: C.muted,
+                                fontSize: 16, cursor: "pointer", padding: "6px 8px",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                transition: "color 0.2s",
+                              }}
+                              title="記録を削除"
+                            >
+                              🗑
+                            </button>
+                            <span style={{ fontSize: 18, color: C.border, marginLeft: 2 }}>›</span>
                           </div>
                         ))
                       )}
