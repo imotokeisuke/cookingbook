@@ -41,7 +41,10 @@ async function saveRecords(records) {
 }
 
 function toDateStr(d) {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const r = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${r}`;
 }
 function getWeekDays(ref) {
   const d = new Date(ref + "T00:00:00");
@@ -132,6 +135,10 @@ export default function App() {
   const [detailId, setDetailId] = useState(null);
   const [toast, setToast] = useState("");
 
+  const [isEditingDetail, setIsEditingDetail] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const editFileRef = useRef();
+
   const emptyForm = { date: toDateStr(new Date()), photo: null, name: "", rating: 3, comment: "" };
   const [form, setForm] = useState(emptyForm);
   const fileRef = useRef();
@@ -174,6 +181,23 @@ export default function App() {
     reader.onload = ev => setForm(f => ({ ...f, photo: ev.target.result }));
     reader.readAsDataURL(file);
     e.target.value = "";
+  };
+
+  const handleEditPhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setEditForm(f => ({ ...f, photo: ev.target.result }));
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editForm.name.trim()) return;
+    const updated = records.map(r => r.id === editForm.id ? editForm : r);
+    await persist(updated);
+    setIsEditingDetail(false);
+    showToast("修正しました ✏️");
   };
 
   const handleMadeThis = (dish) => {
@@ -263,7 +287,7 @@ export default function App() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => { setTab(t.id); if (t.id !== "zukan") setDetailId(null); }}
+                  onClick={() => { setTab(t.id); if (t.id !== "zukan") { setDetailId(null); setIsEditingDetail(false); } }}
                   style={{
                     flex: 1, padding: "9px 0", border: "none", borderRadius: 24,
                     background: active ? C.accent : "transparent",
@@ -367,41 +391,141 @@ export default function App() {
           {tab === "zukan" && (
             <div>
               {detail ? (
-                /* Detail */
-                <div>
-                  <button
-                    onClick={() => setDetailId(null)}
-                    style={{ background: "none", border: "none", color: C.accentDeep, fontSize: 15, cursor: "pointer", padding: "0 0 14px", fontFamily: "inherit" }}
-                  >‹ 図鑑に戻る</button>
-                  <div style={{ background: C.card, borderRadius: 22, border: `1.5px solid ${C.border}`, overflow: "hidden" }}>
-                    <div style={{ padding: "18px 18px 0" }}>
-                      <h2 style={{ margin: "0 0 10px", fontSize: 22, color: C.text, fontWeight: 700 }}>{detail.name}</h2>
-                      <StarRow value={detail.rating} size={26} />
-                      <div style={{ fontSize: 12, color: C.muted, marginTop: 8, marginBottom: 14 }}>{fmtDate(detail.date)}</div>
-                    </div>
-                    {detail.photo ? (
-                      <img src={detail.photo} alt={detail.name} style={{ width: "100%", height: 230, objectFit: "cover" }} />
-                    ) : (
-                      <div style={{ width: "100%", height: 160, background: C.accentLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52 }}>🍽</div>
-                    )}
-                    <div style={{ padding: 18 }}>
-                      {detail.comment ? (
-                        <p style={{ fontSize: 15, color: C.text, lineHeight: 1.75, margin: "0 0 20px" }}>{detail.comment}</p>
-                      ) : (
-                        <p style={{ fontSize: 14, color: C.muted, margin: "0 0 20px" }}>コメントなし</p>
-                      )}
-                      <button
-                        onClick={() => handleMadeThis(detail)}
-                        style={{
-                          width: "100%", padding: "15px", borderRadius: 22,
-                          background: C.accent, border: "none", color: "#fff",
-                          fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                          letterSpacing: "0.04em",
-                        }}
-                      >🍳 これを作った！</button>
+                isEditingDetail ? (
+                  /* Edit Form */
+                  <div>
+                    <button
+                      onClick={() => setIsEditingDetail(false)}
+                      style={{ background: "none", border: "none", color: C.accentDeep, fontSize: 15, cursor: "pointer", padding: "0 0 14px", fontFamily: "inherit" }}
+                    >‹ キャンセル</button>
+                    <div style={{ background: C.card, borderRadius: 22, border: `1.5px solid ${C.border}`, padding: 20 }}>
+                      <h2 style={{ margin: "0 0 18px", fontSize: 17, color: C.text, textAlign: "center", fontWeight: 700 }}>✏️ 記録を修正する</h2>
+
+                      {/* Photo */}
+                      <div style={{ marginBottom: 18 }}>
+                        <PhotoBox src={editForm.photo} onClick={() => editFileRef.current.click()} />
+                        <input ref={editFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleEditPhotoUpload} />
+                        {editForm.photo && (
+                          <div style={{ textAlign: "center", marginTop: 6 }}>
+                            <button onClick={() => setEditForm(f => ({ ...f, photo: null }))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+                              写真を削除
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Name */}
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>料理名 *</label>
+                        <input
+                          type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="例：鶏のから揚げ"
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      {/* Date */}
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={labelStyle}>日付</label>
+                        <input
+                          type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      {/* Rating */}
+                      <div style={{ marginBottom: 18 }}>
+                        <label style={labelStyle}>評価</label>
+                        <StarRow value={editForm.rating} onChange={n => setEditForm(f => ({ ...f, rating: n }))} size={32} />
+                      </div>
+
+                      {/* Comment */}
+                      <div style={{ marginBottom: 22 }}>
+                        <label style={labelStyle}>コメント</label>
+                        <textarea
+                          value={editForm.comment || ""}
+                          onChange={e => setEditForm(f => ({ ...f, comment: e.target.value }))}
+                          placeholder="味の感想や次回へのメモなど…"
+                          rows={3}
+                          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.7 }}
+                        />
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button
+                          onClick={() => setIsEditingDetail(false)}
+                          style={{
+                            flex: 1, padding: "14px", borderRadius: 22,
+                            background: C.bg, border: `1.5px solid ${C.border}`, color: C.text,
+                            fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit"
+                          }}
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          onClick={handleEditSubmit}
+                          disabled={!editForm.name.trim()}
+                          style={{
+                            flex: 2, padding: "14px", borderRadius: 22, border: "none",
+                            background: editForm.name.trim() ? C.accent : C.border,
+                            color: editForm.name.trim() ? "#fff" : C.muted,
+                            fontSize: 15, fontWeight: 700,
+                            cursor: editForm.name.trim() ? "pointer" : "default",
+                            fontFamily: "inherit", letterSpacing: "0.04em",
+                            transition: "background 0.2s",
+                          }}
+                        >
+                          保存する
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Detail */
+                  <div>
+                    <button
+                      onClick={() => { setDetailId(null); setIsEditingDetail(false); }}
+                      style={{ background: "none", border: "none", color: C.accentDeep, fontSize: 15, cursor: "pointer", padding: "0 0 14px", fontFamily: "inherit" }}
+                    >‹ 図鑑に戻る</button>
+                    <div style={{ background: C.card, borderRadius: 22, border: `1.5px solid ${C.border}`, overflow: "hidden" }}>
+                      <div style={{ padding: "18px 18px 0" }}>
+                        <h2 style={{ margin: "0 0 10px", fontSize: 22, color: C.text, fontWeight: 700 }}>{detail.name}</h2>
+                        <StarRow value={detail.rating} size={26} />
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 8, marginBottom: 14 }}>{fmtDate(detail.date)}</div>
+                      </div>
+                      {detail.photo ? (
+                        <img src={detail.photo} alt={detail.name} style={{ width: "100%", height: 230, objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ width: "100%", height: 160, background: C.accentLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52 }}>🍽</div>
+                      )}
+                      <div style={{ padding: 18 }}>
+                        {detail.comment ? (
+                          <p style={{ fontSize: 15, color: C.text, lineHeight: 1.75, margin: "0 0 20px" }}>{detail.comment}</p>
+                        ) : (
+                          <p style={{ fontSize: 14, color: C.muted, margin: "0 0 20px" }}>コメントなし</p>
+                        )}
+                        <button
+                          onClick={() => handleMadeThis(detail)}
+                          style={{
+                            width: "100%", padding: "15px", borderRadius: 22,
+                            background: C.accent, border: "none", color: "#fff",
+                            fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                            letterSpacing: "0.04em", marginBottom: 10
+                          }}
+                        >🍳 これを作った！</button>
+                        <button
+                          onClick={() => { setEditForm({ ...detail }); setIsEditingDetail(true); }}
+                          style={{
+                            width: "100%", padding: "12px", borderRadius: 22,
+                            background: "none", border: `1.5px solid ${C.accent}`, color: C.accentDeep,
+                            fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                            letterSpacing: "0.04em",
+                          }}
+                        >✏️ 記録を修正する</button>
+                      </div>
+                    </div>
+                  </div>
+                )
               ) : (
                 /* List */
                 <div>
@@ -427,7 +551,7 @@ export default function App() {
                     filtered.map(r => (
                       <div
                         key={r.id}
-                        onClick={() => setDetailId(r.id)}
+                        onClick={() => { setDetailId(r.id); setIsEditingDetail(false); }}
                         style={{
                           background: C.card, borderRadius: 18,
                           border: `1.5px solid ${C.border}`, marginBottom: 12,
@@ -467,7 +591,7 @@ export default function App() {
                 {/* Photo */}
                 <div style={{ marginBottom: 18 }}>
                   <PhotoBox src={form.photo} onClick={() => fileRef.current.click()} />
-                  <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handlePhotoUpload} />
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
                   {form.photo && (
                     <div style={{ textAlign: "center", marginTop: 6 }}>
                       <button onClick={() => setForm(f => ({ ...f, photo: null }))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
