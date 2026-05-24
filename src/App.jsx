@@ -389,14 +389,21 @@ export default function App() {
                                 handleRemoveRecord(r.id);
                               }}
                               style={{
-                                background: "none", border: "none", color: C.muted,
-                                fontSize: 16, cursor: "pointer", padding: "6px 8px",
+                                background: "none", border: "none",
+                                cursor: "pointer", padding: "6px 8px",
                                 display: "flex", alignItems: "center", justifyContent: "center",
-                                transition: "color 0.2s",
+                                transition: "opacity 0.2s",
                               }}
                               title="記録を削除"
+                              onMouseEnter={(e) => e.currentTarget.style.opacity = "0.6"}
+                              onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                             >
-                              🗑
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E53935" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                              </svg>
                             </button>
                             <span style={{ fontSize: 18, color: C.border, marginLeft: 2 }}>›</span>
                           </div>
